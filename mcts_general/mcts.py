@@ -48,6 +48,7 @@ class MCTS:
         self,
         observation,
         reward,
+        done,
         game: DeepCopyableGymGame,
         add_exploration_noise,
         override_root_with=None,
@@ -60,7 +61,7 @@ class MCTS:
         """
         if override_root_with:
             root = override_root_with
-            root_predicted_value = None
+            # root_predicted_value = None
         else:
             root = Node(0)
             # root_predicted_value = 0    # Not used
@@ -80,9 +81,9 @@ class MCTS:
             root.expand(
                 self.config.action_space,
                 reward,
-                policy_values=policy_values,
                 observation=observation,
-                game=game.get_copy()
+                game=game.get_copy(),
+                done=done,
             )
 
         if add_exploration_noise:
@@ -107,27 +108,28 @@ class MCTS:
             # Inside the search tree we use the dynamics function to obtain the next hidden
             # state given an action and the previous hidden state
             parent = search_path[-2]
-            game_copy = parent.game.get_copy()
+            if not parent.done:
+                game_copy = parent.game.get_copy()
 
-            observation, reward, done = game_copy.step(action)
-            # TODO: Value for CartPole-v0
-            value = reward if done else 0
-            # TODO: Value estimate over roll outs
-            policy_values = self.get_policy_priors()
-            # value, reward, policy_logits, hidden_state = model.recurrent_inference(
-            #     parent.hidden_state,
-            #     torch.tensor([[action]]).to(parent.hidden_state.device),
-            # )
-            # value = models.support_to_scalar(value, self.config.support_size).item()
-            # reward = models.support_to_scalar(reward, self.config.support_size).item()
-
-            node.expand(
-                self.config.action_space,
-                reward,
-                policy_values,
-                observation,
-                game_copy
-            )
+                observation, reward, done = game_copy.step(action)
+                # TODO: Value for CartPole-v0
+                value = reward if not done else 0
+                # TODO: Value estimate over roll outs
+                # value, reward, policy_logits, hidden_state = model.recurrent_inference(
+                #     parent.hidden_state,
+                #     torch.tensor([[action]]).to(parent.hidden_state.device),
+                # )
+                # value = models.support_to_scalar(value, self.config.support_size).item()
+                # reward = models.support_to_scalar(reward, self.config.support_size).item()
+                node.expand(
+                    self.config.action_space,
+                    reward,
+                    observation,
+                    game_copy,
+                    done
+                )
+            else:
+                value = 0
 
             self.backpropagate(search_path, value, min_max_stats)
 
@@ -142,7 +144,7 @@ class MCTS:
     def get_policy_priors(self):
         policy_values = {}  # TODO: What was that again?
         for action in self.config.action_space:
-            policy_values[action] = 0  # TODO
+            policy_values[action] = 1  # TODO
         return policy_values
 
     def select_child(self, node, min_max_stats):
@@ -174,7 +176,8 @@ class MCTS:
         )
         pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
 
-        prior_score = pb_c * child.prior
+        # prior_score = pb_c * child.prior
+        prior_score = pb_c * (1 / len(parent.children)) # uniform prior score
 
         if child.visit_count > 0:
             # Mean value Q
@@ -216,7 +219,7 @@ class MCTS:
 
 
 class Node:
-    def __init__(self, prior):
+    def __init__(self, prior=1):
         self.visit_count = 0
         self.to_play = -1
         self.prior = prior
@@ -224,6 +227,7 @@ class Node:
         self.children = {}
         self.observation = None
         self.reward = 0
+        self.done = False
         self.game = None
 
     def expanded(self):
@@ -232,24 +236,21 @@ class Node:
     def value(self):
         if self.visit_count == 0:
             return 0
+        elif self.done:
+            return 0 # TODO
         return self.value_sum / self.visit_count
 
-    def expand(self, actions, reward, policy_values, observation, game):
+    def expand(self, actions, reward, observation, game, done):
         """
         We expand a node using the value, reward and policy prediction obtained from the
         neural network.
         """
+        self.done = done
         self.reward = reward
         self.observation = observation
         self.game = game
-
-        # policy_values = torch.softmax(
-        #     torch.tensor([policy_logits[0][a] for a in actions]), dim=0
-        # ).tolist()
-        # policy = {a: policy_values[i] for i, a in enumerate(actions)}
         for action in actions:
-            prior = policy_values[action]
-            self.children[action] = Node(prior)
+            self.children[action] = Node()
 
     def add_exploration_noise(self, dirichlet_alpha, exploration_fraction):
         """

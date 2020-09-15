@@ -7,6 +7,6 @@ class MCTSAgentConfig:
         self.action_space = [i for i in range(2)]
         self.root_dirichlet_alpha = 0.25
         self.root_exploration_fraction = 0.25
-        self.num_simulations = 4000
-        self.reuse_tree = True
+        self.num_simulations = 400
+        self.reuse_tree = False
         self.temperature = 0
