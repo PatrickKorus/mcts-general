@@ -1,12 +1,9 @@
 import math
-import sys
-
-import gym
 import numpy
 
+from common.normalize import MinMaxStats
 from mcts_general.config import MCTSAgentConfig
-from mcts_general.game import DeepCopyableGymGame
-from common.wrapper import DeepCopyableWrapper
+from mcts_general.game import DeepCopyableGame
 
 
 def select_action(node, temperature):
@@ -33,7 +30,7 @@ def select_action(node, temperature):
     return action
 
 
-def get_roll_out(game: DeepCopyableGymGame, n, max_depth=None, discount=0.995):
+def get_roll_out(game: DeepCopyableGame, n, max_depth=None, discount=0.995):
     total_reward = 0
     done = True
     for _ in range(n):
@@ -65,7 +62,7 @@ class MCTS:
         observation,
         reward,
         done,
-        game: DeepCopyableGymGame,
+        game: DeepCopyableGame,
         add_exploration_noise,
         override_root_with=None,
     ):
@@ -121,7 +118,7 @@ class MCTS:
                                          self.config.number_of_roll_outs,
                                          self.config.max_roll_out_depth,
                                          self.config.discount)
-                    initial_visit_count = self.config.number_of_roll_outs - 1 # -1 because increment happens later
+                    initial_visit_count = self.config.number_of_roll_outs - 1    # -1 because of increment in backprop
                 else:
                     value = reward
                     initial_visit_count = 0
@@ -176,7 +173,7 @@ class MCTS:
         pb_c *= math.sqrt(parent.visit_count) / (child.visit_count + 1)
 
         # prior_score = pb_c * child.prior
-        prior_score = pb_c * (1 / len(parent.children)) # uniform prior score
+        prior_score = pb_c * (1 / len(parent.children))     # uniform prior score
 
         if child.visit_count > 0:
             # Mean value Q
@@ -195,7 +192,6 @@ class MCTS:
         At the end of a simulation, we propagate the evaluation all the way up the tree
         to the root.
         """
-        # if len(self.config.players) == 1:
         for node in reversed(search_path):
             node.value_sum += value
             node.visit_count += 1
@@ -249,67 +245,3 @@ class Node:
         frac = exploration_fraction
         for a, n in zip(actions, noise):
             self.children[a].prior = self.children[a].prior * (1 - frac) + n * frac
-
-
-class MinMaxStats:
-    """
-    A class that holds the min-max values of the tree.
-    """
-
-    def __init__(self):
-        self.maximum = -float("inf")
-        self.minimum = float("inf")
-
-    def update(self, value):
-        self.maximum = max(self.maximum, value)
-        self.minimum = min(self.minimum, value)
-
-    def normalize(self, value):
-        if self.maximum > self.minimum:
-            # We normalize only when we have set the maximum and minimum values
-            return (value - self.minimum) / (self.maximum - self.minimum)
-        return value
-
-
-if __name__ == "__main__":
-    sys.setrecursionlimit(10000)
-    config = MCTSAgentConfig()
-    mcts = MCTS(config)
-    #env = gym.make("CartPole-v1")
-    env = gym.make("MountainCar-v0")
-    #env = DiscreteActionWrapper(env)
-    #env = ScaledRewardWrapper(env, min_rew=-16.2736044, max_rew=0)
-    env = DeepCopyableWrapper(env)
-    game = DeepCopyableGymGame(env)
-    game_copy = None
-    obs = game.reset()
-    done = False
-    reward = 0
-    render = True
-    it = 0
-    next_node = None
-    while not done:
-        it += 1
-        result_node, info = mcts.run(
-            observation=obs,
-            reward=reward,
-            game=game,
-            add_exploration_noise=False,
-            override_root_with=next_node
-        )
-        print(info)
-        print(["{}: {}, ".format(action, child.visit_count) for action, child in result_node.children.items()])
-        action = select_action(
-            node=result_node,
-            temperature=0,
-        )
-        next_node = result_node.children[action]
-        print(action)
-        if render:
-            if game_copy is not None:
-                game_copy.env.close()
-            game_copy = game.get_copy()
-            game_copy.env.render()
-        obs, reward, done = game.step(action)
-        print(reward)
-    print(it)
