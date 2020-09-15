@@ -10,3 +10,6 @@ class MCTSAgentConfig:
         self.num_simulations = 400
         self.reuse_tree = False
         self.temperature = 0
+        self.do_roll_outs = True
+        self.number_of_roll_outs = 20
+        self.max_roll_out_depth = 100

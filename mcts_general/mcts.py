@@ -33,6 +33,22 @@ def select_action(node, temperature):
     return action
 
 
+def get_roll_out(game: DeepCopyableGymGame, n, max_depth=None, discount=0.995):
+    total_reward = 0
+    done = True
+    for _ in range(n):
+        trajectory_reward = 0
+        game_copy = game.get_copy()
+        for it in range(max_depth):
+            if done:
+                break
+            action = game_copy.sample_action()
+            _, reward, done = game_copy.step(action)
+            trajectory_reward += discount * reward
+        total_reward += trajectory_reward / (it + 1)
+    return total_reward
+
+
 class MCTS:
     """
     Core Monte Carlo Tree Search algorithm.
@@ -41,7 +57,7 @@ class MCTS:
     reach a leaf node.
     """
 
-    def __init__(self, config):
+    def __init__(self, config: MCTSAgentConfig):
         self.config = config
 
     def run(
@@ -64,20 +80,7 @@ class MCTS:
             # root_predicted_value = None
         else:
             root = Node(0)
-            # root_predicted_value = 0    # Not used
             reward = reward
-            policy_values = self.get_policy_priors()
-            # hidden_state = observation
-            #root_predicted_value = models.support_to_scalar(
-            #    root_predicted_value, self.config.support_size
-            #).item()
-            # reward = models.support_to_scalar(reward, self.config.support_size).item()
-            #assert (
-            #    legal_actions
-            #), f"Legal actions should not be an empty array. Got {legal_actions}."
-            #assert set(legal_actions).issubset(
-            #    set(self.config.action_space)
-            #), "Legal actions should be a subset of the action space."
             root.expand(
                 self.config.action_space,
                 reward,
@@ -109,24 +112,27 @@ class MCTS:
             # state given an action and the previous hidden state
             parent = search_path[-2]
             if not parent.done:
-                game_copy = parent.game.get_copy()
 
+                game_copy = parent.game.get_copy()
                 observation, reward, done = game_copy.step(action)
-                # TODO: Value for CartPole-v0
-                value = reward if not done else 0
-                # TODO: Value estimate over roll outs
-                # value, reward, policy_logits, hidden_state = model.recurrent_inference(
-                #     parent.hidden_state,
-                #     torch.tensor([[action]]).to(parent.hidden_state.device),
-                # )
-                # value = models.support_to_scalar(value, self.config.support_size).item()
-                # reward = models.support_to_scalar(reward, self.config.support_size).item()
+
+                if self.config.do_roll_outs:
+                    value = get_roll_out(game_copy,
+                                         self.config.number_of_roll_outs,
+                                         self.config.max_roll_out_depth,
+                                         self.config.discount)
+                    initial_visit_count = self.config.number_of_roll_outs - 1 # -1 because increment happens later
+                else:
+                    value = reward
+                    initial_visit_count = 0
+
                 node.expand(
                     self.config.action_space,
                     reward,
                     observation,
                     game_copy,
-                    done
+                    done,
+                    initial_visit_count,
                 )
             else:
                 value = 0
@@ -137,15 +143,8 @@ class MCTS:
 
         extra_info = {
             "max_tree_depth": max_tree_depth,
-            # "root_predicted_value": root_predicted_value,
         }
         return root, extra_info
-
-    def get_policy_priors(self):
-        policy_values = {}  # TODO: What was that again?
-        for action in self.config.action_space:
-            policy_values[action] = 1  # TODO
-        return policy_values
 
     def select_child(self, node, min_max_stats):
         """
@@ -204,19 +203,6 @@ class MCTS:
 
             value = node.reward + self.config.discount * value
 
-        # elif len(self.config.players) == 2:
-        #     for node in reversed(search_path):
-        #         node.value_sum += value # if node.to_play == to_play else -value
-        #         node.visit_count += 1
-        #         min_max_stats.update(node.reward + self.config.discount * -node.value())
-        #
-        #         value = (
-        #             -node.reward if node.to_play == to_play else node.reward
-        #         ) + self.config.discount * value
-
-        # else:
-        #     raise NotImplementedError("More than two player mode not implemented.")
-
 
 class Node:
     def __init__(self, prior=1):
@@ -240,7 +226,7 @@ class Node:
             return 0 # TODO
         return self.value_sum / self.visit_count
 
-    def expand(self, actions, reward, observation, game, done):
+    def expand(self, actions, reward, observation, game, done, initial_visit_count=0):
         """
         We expand a node using the value, reward and policy prediction obtained from the
         neural network.
@@ -249,6 +235,7 @@ class Node:
         self.reward = reward
         self.observation = observation
         self.game = game
+        self.visit_count = initial_visit_count
         for action in actions:
             self.children[action] = Node()
 
