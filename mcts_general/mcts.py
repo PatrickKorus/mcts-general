@@ -30,7 +30,7 @@ def select_action(node, temperature):
     return action
 
 
-def get_roll_out(game: DeepCopyableGame, n, max_depth=None, discount=0.995):
+def get_roll_out(game: DeepCopyableGame, n, max_depth=None, discount=0.995, do_simulation_steps=False):
     total_reward = 0
     done = True
     for _ in range(n):
@@ -40,7 +40,7 @@ def get_roll_out(game: DeepCopyableGame, n, max_depth=None, discount=0.995):
             if done:
                 break
             action = game_copy.sample_action()
-            _, reward, done = game_copy.step(action)
+            _, reward, done = game_copy.step(action, simulation=do_simulation_steps)
             trajectory_reward += discount * reward
         total_reward += trajectory_reward / (it + 1)
     return total_reward
@@ -78,12 +78,11 @@ class MCTS:
         else:
             root = Node(0)
             reward = reward
-            root.expand(
-                self.config.action_space,
-                reward,
-                observation=observation,
-                game=game.get_copy(),
-                done=done,
+            root.expand(observation,
+                        reward,
+                        done,
+                        game.get_copy(),
+                        initial_visit_count=0
             )
 
         if add_exploration_noise:
@@ -111,25 +110,25 @@ class MCTS:
             if not parent.done:
 
                 game_copy = parent.game.get_copy()
-                observation, reward, done = game_copy.step(action)
+                observation, reward, done = game_copy.step(action, simulation=True)
 
                 if self.config.do_roll_outs:
                     value = get_roll_out(game_copy,
                                          self.config.number_of_roll_outs,
                                          self.config.max_roll_out_depth,
-                                         self.config.discount)
+                                         self.config.discount,
+                                         do_simulation_steps=self.config.do_roll_out_steps_with_simulation_true)
                     initial_visit_count = self.config.number_of_roll_outs - 1    # -1 because of increment in backprop
                 else:
                     value = reward
                     initial_visit_count = 0
 
                 node.expand(
-                    self.config.action_space,
-                    reward,
                     observation,
-                    game_copy,
+                    reward,
                     done,
-                    initial_visit_count,
+                    game_copy,
+                    initial_visit_count=initial_visit_count
                 )
             else:
                 value = 0
@@ -222,7 +221,7 @@ class Node:
             return 0 # TODO
         return self.value_sum / self.visit_count
 
-    def expand(self, actions, reward, observation, game, done, initial_visit_count=0):
+    def expand(self, observation, reward, done, game, initial_visit_count=0):
         """
         We expand a node using the value, reward and policy prediction obtained from the
         neural network.
@@ -232,7 +231,7 @@ class Node:
         self.observation = observation
         self.game = game
         self.visit_count = initial_visit_count
-        for action in actions:
+        for action in game.legal_actions(simulation=True):
             self.children[action] = Node()
 
     def add_exploration_noise(self, dirichlet_alpha, exploration_fraction):

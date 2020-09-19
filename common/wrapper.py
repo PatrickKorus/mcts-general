@@ -6,14 +6,11 @@ import numpy
 
 
 class DiscreteActionWrapper(gym.ActionWrapper):
-    def reverse_action(self, action):
-        action = self.action_equivalents[action]
-        super(DiscreteActionWrapper, self).reverse_action(action)
 
     def __init__(self, env, num_actions=2, damping=0.75):
         super().__init__(env)
         self.original_action_space = env.action_space
-        env.action_space = Discrete(num_actions)
+        self.action_space = Discrete(num_actions)
         high = self.original_action_space.high
         low = self.original_action_space.low
         rnge = high - low
@@ -26,9 +23,10 @@ class DiscreteActionWrapper(gym.ActionWrapper):
                                                step=step)[0:num_actions]]
 
     def action(self, act):
-        # modify act
-        act = self.action_equivalents[act]
-        return act
+        return self.action_equivalents[act]
+
+    def reverse_action(self, action):
+        return self.action_equivalents.index(action)
 
 
 class ScaledRewardWrapper(gym.RewardWrapper):
@@ -52,3 +50,16 @@ class DeepCopyableWrapper(gym.Wrapper):
         for k, v in self.__dict__.items():
             setattr(result, k, deepcopy(v, memodict))
         return result
+
+
+class ManipulatedTimeDiscretization(gym.Wrapper):
+
+    def __init__(self, env, number_of_time_steps_to_scip):
+        assert number_of_time_steps_to_scip > 0, 'Number of time steps to stack must be larger than 0!'
+        self.n_scip = number_of_time_steps_to_scip
+        super(ManipulatedTimeDiscretization, self).__init__(env)
+
+    def step(self, action):
+        for _ in range(self.n_scip):
+            obs, rew, done, inf = self.env.step(action)
+        return obs, rew, done, inf

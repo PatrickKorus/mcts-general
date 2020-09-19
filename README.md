@@ -28,3 +28,5 @@ sys.setrecursionlimit(10000)
 # TODO: Explain how to use agent
 # TODO: Link to Thesis PDF
 ```
+
+Disclaimer: No tested for envs with scalar action space
