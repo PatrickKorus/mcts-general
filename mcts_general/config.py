@@ -13,3 +13,12 @@ class MCTSAgentConfig:
         self.number_of_roll_outs = 5
         self.max_roll_out_depth = 20
         self.do_roll_out_steps_with_simulation_true = False
+
+
+class MCTSContinuousAgentConfig(MCTSAgentConfig):
+
+    def __init__(self):
+        super(MCTSContinuousAgentConfig, self).__init__()
+        # single progressive widening
+        self.C = 1
+        self.alpha = 0.25

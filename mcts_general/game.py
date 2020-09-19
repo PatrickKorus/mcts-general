@@ -18,21 +18,20 @@ class DeepCopyableGame(metaclass=abc.ABCMeta):
         self.rand.seed(seed)
 
     @abc.abstractmethod
-    def legal_actions(self, simulation=False) -> typing.List[typing.Union[float, int]]:
+    def legal_actions(self, simulation=False) -> list:
         """ Used in tree expansion. """
         pass
 
+    @abc.abstractmethod
     def sample_action(self, simulation=False):
         """ Used in Roll outs. """
-        legal_actions = self.legal_actions(simulation=simulation)
-        return legal_actions[self.rand.random_integers(0, len(legal_actions))]
-
-    @abc.abstractmethod
-    def step(self,
-             action,
-             simulation=False) -> tuple:
         pass
 
+    @abc.abstractmethod
+    def step(self, action, simulation=False) -> tuple:
+        pass
+
+    @abc.abstractmethod
     def render(self, mode='human', **kwargs):
         pass
 
@@ -41,14 +40,13 @@ class DeepCopyableGame(metaclass=abc.ABCMeta):
         pass
 
 
-class DeepCopyableGymGame(DeepCopyableGame):
+class GymGame(DeepCopyableGame, metaclass=abc.ABCMeta):
 
     def __init__(self, env: gym.Env, seed=0):
-        assert isinstance(env.action_space, gym.spaces.Discrete), "Gym Env must have discrete action space!"
         self.env = DeepCopyableWrapper(env)
         self.env.seed(seed)
         self.render_copy = None
-        super(DeepCopyableGymGame, self).__init__(seed)
+        super(GymGame, self).__init__(seed)
 
     def reset(self):
         return self.env.reset()
@@ -58,11 +56,8 @@ class DeepCopyableGymGame(DeepCopyableGame):
         if self.render_copy is not None:
             self.render_copy.close()
 
-    def legal_actions(self, simulation=False):
-        return [i for i in range(self.env.action_space.n)]
-
     def step(self, action, simulation=False):
-        obs, rew, done, _ = self.env.step(int(action))
+        obs, rew, done, _ = self.env.step(action)
         return obs, rew, done
 
     def render(self, mode='human', **kwargs):
@@ -75,11 +70,32 @@ class DeepCopyableGymGame(DeepCopyableGame):
             self.render_copy = self.get_copy()
             self.render_copy.env.render(mode, **kwargs)
 
-    def get_copy(self) -> "DeepCopyableGymGame":
-        return DeepCopyableGymGame(deepcopy(self.env), seed=self.rand.randint(1e9))
+    def get_copy(self) -> "GymGame":
+        return GymGame(deepcopy(self.env), seed=self.rand.randint(1e9))
 
 
-class GymGameWithMacroActions(DeepCopyableGymGame):
+class DiscreteGymGame(GymGame):
+
+    def __init__(self, env, seed=0):
+        assert isinstance(env.action_space, gym.spaces.Discrete), "Gym Env must have discrete action space!"
+        super(DiscreteGymGame, self).__init__(env, seed)
+
+    def step(self, action, simulation=False):
+        action = int(action)
+        super(DiscreteGymGame, self).step(action, simulation)
+
+    def legal_actions(self, simulation=False):
+        return [i for i in range(self.env.action_space.n)]
+
+    def sample_action(self, simulation=False):
+        legal_actions = self.legal_actions(simulation=simulation)
+        return legal_actions[self.rand.random_integers(0, len(legal_actions))]
+
+    def get_copy(self) -> "DiscreteGymGame":
+        return DiscreteGymGame(deepcopy(self.env), self.rand.randint(1e9))
+
+
+class GymGameWithMacroActions(DiscreteGymGame):
     def __init__(self, env, seed, macro_actions: typing.List[typing.List[float]]):
         self._macro_actions = macro_actions
         super(GymGameWithMacroActions, self).__init__(env, seed)
@@ -168,3 +184,27 @@ class PendulumGameWithEngineeredMacroActions(GymGameWithMacroActions):
                                                       max_macro_action_len=self._max_macro_action_len)
         copy.env = deepcopy(self.env)
         return copy
+
+
+""" Continuous Actions """
+
+
+class ContinuousGymGame(GymGame):
+
+    def __init__(self, env, mu, sigma, seed=0):
+        self.mu = mu
+        self.sigma = sigma
+        super(ContinuousGymGame, self).__init__(env, seed)
+
+    def legal_actions(self, simulation=False) -> list:
+        return [self.env.action_space.low, self.env.action_space.high]
+
+    def sample_action(self, simulation=False):
+        action = numpy.random.normal(self.mu, self.sigma)
+        return numpy.clip(action, self.legal_actions(simulation)[0], self.legal_actions(simulation)[1])[0]
+
+    def get_copy(self) -> "ContinuousGymGame":
+        return ContinuousGymGame(deepcopy(self.env), self.mu, self.sigma, self.rand.randint(1e9))
+    
+    def step(self, action, simulation=False):
+        return super(ContinuousGymGame, self).step([action], simulation)

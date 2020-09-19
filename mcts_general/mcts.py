@@ -2,8 +2,8 @@ import math
 import numpy
 
 from common.normalize import MinMaxStats
-from mcts_general.config import MCTSAgentConfig
-from mcts_general.game import DeepCopyableGame
+from mcts_general.config import MCTSAgentConfig, MCTSContinuousAgentConfig
+from mcts_general.game import DeepCopyableGame, ContinuousGymGame
 
 
 def select_action(node, temperature):
@@ -56,6 +56,7 @@ class MCTS:
 
     def __init__(self, config: MCTSAgentConfig):
         self.config = config
+        self.node_cls = Node
 
     def run(
         self,
@@ -72,11 +73,10 @@ class MCTS:
         We then run a Monte Carlo Tree Search using only action sequences and the model
         learned by the network.
         """
-        if override_root_with:
+        if override_root_with is not None:
             root = override_root_with
-            # root_predicted_value = None
         else:
-            root = Node(0)
+            root = self.node_cls(0)
             reward = reward
             root.expand(observation,
                         reward,
@@ -200,10 +200,11 @@ class MCTS:
 
 
 class Node:
+
     def __init__(self, prior=1):
         self.visit_count = 0
         self.to_play = -1
-        self.prior = prior
+        self.prior = prior      # uniform prior
         self.value_sum = 0
         self.children = {}
         self.observation = None
@@ -215,16 +216,14 @@ class Node:
         return len(self.children) > 0
 
     def value(self):
-        if self.visit_count == 0:
+        if self.visit_count == 0 or self.done:
             return 0
-        elif self.done:
-            return 0 # TODO
         return self.value_sum / self.visit_count
 
     def expand(self, observation, reward, done, game, initial_visit_count=0):
         """
         We expand a node using the value, reward and policy prediction obtained from the
-        neural network.
+        neural network. TODO Doc
         """
         self.done = done
         self.reward = reward
@@ -237,10 +236,68 @@ class Node:
     def add_exploration_noise(self, dirichlet_alpha, exploration_fraction):
         """
         At the start of each search, we add dirichlet noise to the prior of the root to
-        encourage the search to explore new actions.
+        encourage the search to explore new actions. TODO Doc
         """
         actions = list(self.children.keys())
         noise = numpy.random.dirichlet([dirichlet_alpha] * len(actions))
         frac = exploration_fraction
         for a, n in zip(actions, noise):
             self.children[a].prior = self.children[a].prior * (1 - frac) + n * frac
+
+
+class ContinuousNode(Node):
+
+    def expand(self, observation, reward, done, game, initial_visit_count=0):
+        self.reward = reward
+        self.observation = observation
+        self.game = game
+        self.visit_count = initial_visit_count
+        action = game.sample_action(simulation=True)
+        self.children[action] = ContinuousNode()
+
+
+class ContinuousMCTS(MCTS):
+    def __init__(self, config: MCTSContinuousAgentConfig):
+        super(ContinuousMCTS, self).__init__(config)
+        self.node_cls = ContinuousNode
+
+    def run(
+            self,
+            observation,
+            reward,
+            done,
+            game: ContinuousGymGame,
+            add_exploration_noise,
+            override_root_with=None,
+    ):
+        return super(ContinuousMCTS, self).run(
+            observation,
+            reward,
+            done,
+            game,
+            add_exploration_noise,
+            override_root_with
+        )
+
+    def select_child(self, node, min_max_stats):
+        # Progressive widening (See https://hal.archives-ouvertes.fr/hal-00542673v2/document)
+        C = self.config.C
+        alpha = self.config.alpha
+        while len(node.children) < math.ceil(C * node.visit_count ** alpha):
+            action = node.game.sample_action(simulation=True)
+            node.children[action] = ContinuousNode()
+
+        max_ucb = max(
+            self.ucb_score(node, child, min_max_stats)
+            for action, child in node.children.items()
+        )
+
+        action = numpy.random.choice(
+            [
+                action
+                for action, child in node.children.items()
+                if self.ucb_score(node, child, min_max_stats) == max_ucb
+            ]
+        )
+        return action, node.children[action]
+
