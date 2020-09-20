@@ -10,7 +10,7 @@ class MCTSAgent:
         self.mcts = MCTS(self.config)
         self.result_node = None
 
-    def step(self, game_state: DeepCopyableGame, observations, reward, done, return_debug_info=False):
+    def step(self, game_state: DeepCopyableGame, observations, reward, done, output_debug_info=False):
         self.result_node, info = self.mcts.run(
             observation=observations,
             reward=reward,
@@ -20,7 +20,7 @@ class MCTSAgent:
             done=done
         )
         action = select_action(self.result_node, temperature=self.config.temperature)
-        if return_debug_info:
+        if output_debug_info:
             return action, info
         else:
             return action
