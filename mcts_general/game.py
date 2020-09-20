@@ -28,6 +28,11 @@ class DeepCopyableGame(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def reset(self):
+        """ (Re-)Initializes the Environment and returns the (new) initial state. """
+        pass
+
+    @abc.abstractmethod
     def step(self, action, simulation=False) -> tuple:
         pass
 

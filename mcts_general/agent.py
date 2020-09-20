@@ -1,5 +1,5 @@
 from mcts_general.config import MCTSAgentConfig, MCTSContinuousAgentConfig
-from mcts_general.game import GymGame
+from mcts_general.game import DeepCopyableGame
 from mcts_general.mcts import MCTS, select_action, ContinuousMCTS
 
 
@@ -10,7 +10,7 @@ class MCTSAgent:
         self.mcts = MCTS(self.config)
         self.result_node = None
 
-    def step(self, game_state: GymGame, observations, reward, done):
+    def step(self, game_state: DeepCopyableGame, observations, reward, done):
         self.result_node, info = self.mcts.run(
             observation=observations,
             reward=reward,

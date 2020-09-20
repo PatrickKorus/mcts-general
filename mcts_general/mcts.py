@@ -1,7 +1,7 @@
 import math
 import numpy
 
-from common.normalize import MinMaxStats
+from mcts_general.common.normalize import MinMaxStats
 from mcts_general.config import MCTSAgentConfig, MCTSContinuousAgentConfig
 from mcts_general.game import DeepCopyableGame, ContinuousGymGame
 
@@ -259,6 +259,7 @@ class ContinuousNode(Node):
 class ContinuousMCTS(MCTS):
     def __init__(self, config: MCTSContinuousAgentConfig):
         super(ContinuousMCTS, self).__init__(config)
+        self.config = config
         self.node_cls = ContinuousNode
 
     def run(
