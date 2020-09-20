@@ -15,7 +15,7 @@ class DeepCopyableGame(metaclass=abc.ABCMeta):
 
     def __init__(self, seed):
         self.rand = numpy.random
-        self.seed = seed
+        self.__seed = seed
 
     @abc.abstractmethod
     def legal_actions(self, simulation=False) -> list:
@@ -44,12 +44,10 @@ class DeepCopyableGame(metaclass=abc.ABCMeta):
     def get_copy(self) -> "DeepCopyableGame":
         pass
 
-    @property
-    def seed(self):
+    def get_seed(self):
         return self.__seed
 
-    @seed.setter
-    def seed(self, seed):
+    def set_seed(self, seed):
         self.rand.seed(seed)
         self.__seed = seed
 
@@ -86,14 +84,9 @@ class GymGame(DeepCopyableGame, metaclass=abc.ABCMeta):
     def get_copy(self) -> "GymGame":
         return GymGame(deepcopy(self.env), seed=self.rand.randint(1e9))
 
-    @property
-    def seed(self):
-        return super(GymGame, self).seed
-
-    @seed.setter
-    def seed(self, seed):
+    def set_seed(self, seed):
         self.env.seed(seed)
-        super(GymGame, self).seed.fset(seed)
+        super(GymGame, self).set_seed(seed)
 
     def __str__(self):
         return str(self.env).split('<')[-1].split('>')[0]
