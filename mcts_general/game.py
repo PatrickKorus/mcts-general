@@ -78,6 +78,9 @@ class GymGame(DeepCopyableGame, metaclass=abc.ABCMeta):
     def get_copy(self) -> "GymGame":
         return GymGame(deepcopy(self.env), seed=self.rand.randint(1e9))
 
+    def __str__(self):
+        return str(self.env).split('<')[-1].split('>')[0]
+
 
 class DiscreteGymGame(GymGame):
 

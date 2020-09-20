@@ -2,7 +2,7 @@
 
 General Python implementation of Monte Carlo Tree Search for the use with Open AI Gym environments.
 
-The MCTS Algorithm is similar to the one from [muzero-general](https://github.com/PatrickKorus/muzero-general) which is 
+The MCTS Algorithm is based on the one from [muzero-general](https://github.com/PatrickKorus/muzero-general) which is 
 forked from [here](https://github.com/werner-duvaud/muzero-general).
 
 This code was part of my Bachelor Thesis:
