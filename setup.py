@@ -2,8 +2,8 @@ from setuptools import setup
 
 setup(
     name='mcts-general',
-    version='1.0.1',
-    packages=['mcts_general'],
+    version='1.0.2',
+    packages=['mcts_general', 'mcts_general.common'],
     url='https://github.com/PatrickKorus/mcts-general.git',
     license='GPL-3.0 License',
     author='Patrick Korus',
