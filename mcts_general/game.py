@@ -121,7 +121,7 @@ class GymGameWithMacroActions(DiscreteGymGame):
             for a in mac_act:
                 obs, rew, done = super(GymGameWithMacroActions, self).step(a)
                 reward += rew
-            reward /= len(mac_act)
+            reward /= len(mac_act)  # return avg reward on macro action trajectory
         else:
             # in evaluation just take one step
             obs, reward, done = super(GymGameWithMacroActions, self).step(action)
