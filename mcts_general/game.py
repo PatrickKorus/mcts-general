@@ -15,7 +15,7 @@ class DeepCopyableGame(metaclass=abc.ABCMeta):
 
     def __init__(self, seed):
         self.rand = numpy.random
-        self.seed(seed)
+        self.seed = seed
 
     @abc.abstractmethod
     def legal_actions(self, simulation=False) -> list:
@@ -44,8 +44,14 @@ class DeepCopyableGame(metaclass=abc.ABCMeta):
     def get_copy(self) -> "DeepCopyableGame":
         pass
 
+    @property
+    def seed(self):
+        return self.__seed
+
+    @seed.setter
     def seed(self, seed):
         self.rand.seed(seed)
+        self.__seed = seed
 
 
 class GymGame(DeepCopyableGame, metaclass=abc.ABCMeta):
@@ -80,9 +86,14 @@ class GymGame(DeepCopyableGame, metaclass=abc.ABCMeta):
     def get_copy(self) -> "GymGame":
         return GymGame(deepcopy(self.env), seed=self.rand.randint(1e9))
 
+    @property
+    def seed(self):
+        return super(GymGame, self).seed
+
+    @seed.setter
     def seed(self, seed):
         self.env.seed(seed)
-        super(GymGame, self).seed(seed)
+        super(GymGame, self).seed = seed
 
     def __str__(self):
         return str(self.env).split('<')[-1].split('>')[0]
@@ -111,8 +122,8 @@ class DiscreteGymGame(GymGame):
 
 class GymGameWithMacroActions(DiscreteGymGame):
     def __init__(self, env, seed, macro_actions: typing.List[typing.List[float]]):
-        self._macro_actions = macro_actions
         super(GymGameWithMacroActions, self).__init__(env, seed)
+        self._macro_actions = macro_actions
 
     @property
     def macro_actions(self):
@@ -154,6 +165,7 @@ class GymGameDoingMultipleStepsInSimulations(GymGameWithMacroActions):
 
     def __init__(self, env, seed=0, number_of_multiple_actions_in_simulation=1):
         self.n = number_of_multiple_actions_in_simulation
+        self.env = env  # this is necessary so that self.legal_actions() works
         # macro actions are multiple actions i.e. >>> [[0, 0, 0, ...], [1, 1, 1, 1, ...], ...]
         macro_actions = [numpy.ones(self.n) * action for action in self.legal_actions()]
         super(GymGameDoingMultipleStepsInSimulations, self).__init__(env, seed, macro_actions)
