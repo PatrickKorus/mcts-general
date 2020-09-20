@@ -55,7 +55,7 @@ class DeepCopyableGame(metaclass=abc.ABCMeta):
 class GymGame(DeepCopyableGame, metaclass=abc.ABCMeta):
 
     def __init__(self, env: gym.Env, seed=0):
-        self.env = DeepCopyableWrapper(env)
+        self.env = DeepCopyableWrapper(env) if not isinstance(env, DeepCopyableWrapper) else env
         self.render_copy = None
         super(GymGame, self).__init__(seed)
 
@@ -100,14 +100,15 @@ class DiscreteGymGame(GymGame):
 
     def step(self, action, simulation=False):
         action = int(action)
-        super(DiscreteGymGame, self).step(action, simulation)
+        obs, rew, done = super(DiscreteGymGame, self).step(action, simulation)
+        return obs, rew, done
 
     def legal_actions(self, simulation=False):
         return [i for i in range(self.env.action_space.n)]
 
     def sample_action(self, simulation=False):
         legal_actions = self.legal_actions(simulation=simulation)
-        return legal_actions[self.rand.random_integers(0, len(legal_actions))]
+        return legal_actions[self.rand.random_integers(0, len(legal_actions) - 1)]
 
     def get_copy(self) -> "DiscreteGymGame":
         return DiscreteGymGame(deepcopy(self.env), self.rand.randint(1e9))
