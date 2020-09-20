@@ -8,7 +8,7 @@ from copy import deepcopy
 
 import gym
 
-from common.wrapper import DeepCopyableWrapper, DiscreteActionWrapper
+from mcts_general.common.wrapper import DeepCopyableWrapper, DiscreteActionWrapper
 
 
 class DeepCopyableGame(metaclass=abc.ABCMeta):
