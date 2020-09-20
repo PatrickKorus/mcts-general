@@ -10,7 +10,7 @@ class MCTSAgent:
         self.mcts = MCTS(self.config)
         self.result_node = None
 
-    def step(self, game_state: DeepCopyableGame, observations, reward, done):
+    def step(self, game_state: DeepCopyableGame, observations, reward, done, return_debug_info=False):
         self.result_node, info = self.mcts.run(
             observation=observations,
             reward=reward,
@@ -19,8 +19,11 @@ class MCTSAgent:
             override_root_with=self.result_node if self.config.reuse_tree else None,
             done=done
         )
-        print(info)
-        return select_action(self.result_node, temperature=self.config.temperature)
+        action = select_action(self.result_node, temperature=self.config.temperature)
+        if return_debug_info:
+            return action, info
+        else:
+            return action
 
 
 class ContinuousMCTSAgent(MCTSAgent):
