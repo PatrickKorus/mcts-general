@@ -6,9 +6,12 @@ from mcts_general.mcts import MCTS, select_action, ContinuousMCTS
 class MCTSAgent:
 
     def __init__(self, config: MCTSAgentConfig):
-        self.config = config
-        self.mcts = MCTS(self.config)
+        self.mcts = MCTS(config)
         self.result_node = None
+
+    @property
+    def config(self):
+        return self.mcts.config
 
     def step(self, game_state: DeepCopyableGame, observations, reward, done, output_debug_info=False):
         self.result_node, info = self.mcts.run(
