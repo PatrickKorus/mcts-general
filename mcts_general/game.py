@@ -93,7 +93,7 @@ class GymGame(DeepCopyableGame, metaclass=abc.ABCMeta):
     @seed.setter
     def seed(self, seed):
         self.env.seed(seed)
-        super(GymGame, self).seed = seed
+        super(GymGame, self).seed.fset(seed)
 
     def __str__(self):
         return str(self.env).split('<')[-1].split('>')[0]
