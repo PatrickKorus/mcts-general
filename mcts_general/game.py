@@ -89,7 +89,7 @@ class GymGame(DeepCopyableGame, metaclass=abc.ABCMeta):
         super(GymGame, self).set_seed(seed)
 
     def __str__(self):
-        return str(self.env).split('<')[-1].split('>')[0]
+        return str(self.env).split('<')[-1].split('>')[0].split(' ')[0]
 
 
 class DiscreteGymGame(GymGame):
