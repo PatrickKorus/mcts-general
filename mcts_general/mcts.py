@@ -78,11 +78,12 @@ class MCTS:
         else:
             root = self.node_cls(0)
             reward = reward
-            root.expand(observation,
-                        reward,
-                        done,
-                        game.get_copy(),
-                        initial_visit_count=0
+            root.expand(
+                observation,
+                reward,
+                done,
+                game.get_copy(),
+                initial_visit_count=0
             )
 
         if add_exploration_noise:
@@ -301,4 +302,3 @@ class ContinuousMCTS(MCTS):
             ]
         )
         return action, node.children[action]
-

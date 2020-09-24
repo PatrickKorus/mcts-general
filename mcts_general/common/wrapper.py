@@ -18,9 +18,10 @@ class DiscreteActionWrapper(gym.ActionWrapper):
         high = mid + 0.5 * damping * rnge
         low = mid - 0.5 * damping * rnge
         step = (rnge * damping) / (num_actions - 1)
-        self.action_equivalents = [numpy.array([i], dtype="float32") for i in numpy.arange(start=low,
-                                               stop=high + 1,    # so that high is included
-                                               step=step)[0:num_actions]]
+        self.action_equivalents = [numpy.array([i], dtype="float32") for i in numpy.arange(
+            start=low,
+            stop=high + 1,    # so that high is included
+            step=step)[0:num_actions]]
 
     def action(self, act):
         return self.action_equivalents[act]
