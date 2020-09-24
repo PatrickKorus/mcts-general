@@ -1,4 +1,6 @@
-from collections.abc import Iterable
+"""
+This package contains `DeepCopyableGame` and its implementations. See implementations for details.
+"""
 
 import numpy
 import typing
@@ -12,6 +14,13 @@ from mcts_general.common.wrapper import DeepCopyableWrapper, DiscreteActionWrapp
 
 
 class DeepCopyableGame(metaclass=abc.ABCMeta):
+    """
+    This is the interface for a game used within the MCTS search and mainly provides a forward simulator with methods
+    for getting getting deep copies of your game state as well as sampling actions for exploration.
+
+    :ivar seed: The seed used in all pseudo random components. This can be set and retrieved usind set_seed() and
+    get_seed() only.
+    """
 
     def __init__(self, seed):
         self.rand = numpy.random
@@ -34,25 +43,43 @@ class DeepCopyableGame(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def step(self, action, simulation=False) -> tuple:
+        """
+        Take one step in the game. Similar to gym.env.step() this should output a tuple: observation, reward, done
+
+        :param action: The action to be taken.
+        :param simulation: The flag 'simulation' is True during MCTS steps and False by default. This can be used if you want a different
+        behaviour during planning than during evaluation (e. g. plan in a different time step discretization).
+        :return: observation, reward, done
+        """
         pass
 
     @abc.abstractmethod
     def render(self, mode='human', **kwargs):
+        """ Render the environment """
         pass
 
     @abc.abstractmethod
     def get_copy(self) -> "DeepCopyableGame":
+        """ Returns a deep copy of your game. """
         pass
 
     def get_seed(self):
+        """ Get the current seed. Note that we are using conventional getters and setters because this makes inheritance
+         of getter/setter behaviour much more straight forward than using `@property`. We decided to put code
+         readability over doing things the pythonic way in this case. """
         return self.__seed
 
     def set_seed(self, seed):
+        """ Set the seed for all pseudo random components used in your game. """
         self.rand.seed(seed)
         self.__seed = seed
 
 
 class GymGame(DeepCopyableGame, metaclass=abc.ABCMeta):
+    """
+    This abstract class underlies all classes that use OpenAI gym environments. It ensures that the Gym Environment
+    is wrapped in the `DeepCopyableWrapper` and links the `DeepCopyableGame` methods to OpenAi gym.env's methods.
+    """
 
     def __init__(self, env: gym.Env, seed=0):
         self.env = DeepCopyableWrapper(env) if not isinstance(env, DeepCopyableWrapper) else env
@@ -112,6 +139,30 @@ class DiscreteGymGame(GymGame):
 
     def get_copy(self) -> "DiscreteGymGame":
         return DiscreteGymGame(deepcopy(self.env), self.rand.randint(1e9))
+
+
+""" Continuous Actions """
+
+
+class ContinuousGymGame(GymGame):
+
+    def __init__(self, env, mu, sigma, seed=0):
+        self.mu = mu
+        self.sigma = sigma
+        super(ContinuousGymGame, self).__init__(env, seed)
+
+    def legal_actions(self, simulation=False) -> list:
+        return [self.env.action_space.low, self.env.action_space.high]
+
+    def sample_action(self, simulation=False):
+        action = numpy.random.normal(self.mu, self.sigma)
+        return numpy.clip(action, self.legal_actions(simulation)[0], self.legal_actions(simulation)[1])[0]
+
+    def get_copy(self) -> "ContinuousGymGame":
+        return ContinuousGymGame(deepcopy(self.env), self.mu, self.sigma, self.rand.randint(1e9))
+
+    def step(self, action, simulation=False):
+        return super(ContinuousGymGame, self).step([action], simulation)
 
 
 class GymGameWithMacroActions(DiscreteGymGame):
@@ -204,27 +255,3 @@ class PendulumGameWithEngineeredMacroActions(GymGameWithMacroActions):
                                                       max_macro_action_len=self._max_macro_action_len)
         copy.env = deepcopy(self.env)
         return copy
-
-
-""" Continuous Actions """
-
-
-class ContinuousGymGame(GymGame):
-
-    def __init__(self, env, mu, sigma, seed=0):
-        self.mu = mu
-        self.sigma = sigma
-        super(ContinuousGymGame, self).__init__(env, seed)
-
-    def legal_actions(self, simulation=False) -> list:
-        return [self.env.action_space.low, self.env.action_space.high]
-
-    def sample_action(self, simulation=False):
-        action = numpy.random.normal(self.mu, self.sigma)
-        return numpy.clip(action, self.legal_actions(simulation)[0], self.legal_actions(simulation)[1])[0]
-
-    def get_copy(self) -> "ContinuousGymGame":
-        return ContinuousGymGame(deepcopy(self.env), self.mu, self.sigma, self.rand.randint(1e9))
-    
-    def step(self, action, simulation=False):
-        return super(ContinuousGymGame, self).step([action], simulation)
