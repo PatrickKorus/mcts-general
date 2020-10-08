@@ -7,7 +7,7 @@ forked from [here](https://github.com/werner-duvaud/muzero-general).
 
 This code was part of my Bachelor Thesis:
 
-#### [An Evaluation of MCTS Methods for Continuous Control Tasks](https://github.com/PatrickKorus/muzero-general) 
+#### [An Evaluation of MCTS Methods for Continuous Control Tasks](https://www.dropbox.com/s/9acbtihfmagn7el/Bachelor_Thesis___An_Evaluation_of_MCTS_Methods_for_Continuous_Control_Tasks_FINAL.pdf?dl=0) 
 
 The source code of the experiments covered by the thesis can be found [here](https://github.com/PatrickKorus/MCTSOC).
 
